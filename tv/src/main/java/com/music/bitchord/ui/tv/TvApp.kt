@@ -59,6 +59,7 @@ import androidx.compose.ui.zIndex
 import androidx.media3.session.MediaController
 import com.music.bitchord.R
 import com.music.bitchord.data.model.BrowseType
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.ui.MainViewModel
@@ -178,6 +179,29 @@ fun TvApp(
         com.music.bitchord.ui.tv.audio.TvSpatialAudioEngine.setEnabled(spatialAudio)
     }
 
+    // Sesión del panel ibo: sin ella solo se ve el login.
+    val panelUser by AppSettings.panelUser.collectAsState()
+    val panelPass by AppSettings.panelPass.collectAsState()
+    val panelHost by AppSettings.panelHost.collectAsState()
+    var loginNotice by remember { mutableStateOf<Int?>(null) }
+    // Al abrir la app se revisa que la cuenta siga vigente. Sin conexión se
+    // conserva la sesión; solo una cuenta inválida o vencida la cierra.
+    LaunchedEffect(panelUser) {
+        if (panelUser.isBlank()) return@LaunchedEffect
+        loginNotice = null
+        when (com.music.bitchord.data.PanelLogin.revalidate(panelHost, panelUser, panelPass)) {
+            com.music.bitchord.data.PanelLogin.Result.Invalid -> {
+                loginNotice = com.music.bitchord.R.string.login_error_invalid
+                AppSettings.clearPanelSession()
+            }
+            com.music.bitchord.data.PanelLogin.Result.Expired -> {
+                loginNotice = com.music.bitchord.R.string.login_error_expired
+                AppSettings.clearPanelSession()
+            }
+            else -> Unit
+        }
+    }
+
     val signedIn by viewModel.signedIn.collectAsState()
     LaunchedEffect(signedIn) {
         if (!signedIn) {
@@ -191,7 +215,7 @@ fun TvApp(
             .fillMaxSize()
             .tvCanvas(playerState.song?.thumbnailUrl),
     ) {
-        AnimatedContent(
+        if (panelUser.isNotBlank()) AnimatedContent(
             targetState = isRunningSetup,
             transitionSpec = { fadeIn(tween(220)).togetherWith(fadeOut(tween(160))) },
             label = "tvAppView",
@@ -237,7 +261,11 @@ fun TvApp(
             }
         }
 
-        if (showAccountDialog && !isRunningSetup) {
+        if (panelUser.isBlank()) {
+            com.music.bitchord.ui.tv.onboarding.TvLoginScreen(initialError = loginNotice)
+        }
+
+        if (showAccountDialog && panelUser.isNotBlank() && !isRunningSetup) {
             TvAccountDialog(
                 viewModel = viewModel,
                 onDismiss = {

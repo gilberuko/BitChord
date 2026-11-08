@@ -142,6 +142,19 @@ fun TvSettingsScreen(
                 )
             }
 
+            item {
+                val panelUser by AppSettings.panelUser.collectAsState()
+                if (panelUser.isNotBlank()) {
+                    TvListRow(
+                        title = "Cerrar sesión de la cuenta",
+                        value = panelUser,
+                        destructive = true,
+                        onFocused = { blurb = "Cierra la sesión de $panelUser en este equipo; para volver a entrar se pide usuario y contraseña." },
+                        onClick = { AppSettings.clearPanelSession() },
+                    )
+                }
+            }
+
             item { TvListHeader("Playback") }
             item {
                 TvListRow(

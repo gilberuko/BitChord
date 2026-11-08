@@ -942,6 +942,9 @@ fun TvTextField(
     capitalization: androidx.compose.ui.text.input.KeyboardCapitalization =
         androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
     onImeAction: () -> Unit = {},
+    keyboardType: androidx.compose.ui.text.input.KeyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+    visualTransformation: androidx.compose.ui.text.input.VisualTransformation =
+        androidx.compose.ui.text.input.VisualTransformation.None,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -952,11 +955,13 @@ fun TvTextField(
         onValueChange = onValueChange,
         singleLine = true,
         interactionSource = interaction,
+        visualTransformation = visualTransformation,
         textStyle = TvType.Body.copy(fontSize = 14.sp, color = textColor),
         cursorBrush = androidx.compose.ui.graphics.SolidColor(textColor),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
             capitalization = capitalization,
             autoCorrectEnabled = false,
+            keyboardType = keyboardType,
             imeAction = imeAction,
         ),
         keyboardActions = androidx.compose.foundation.text.KeyboardActions(onAny = { onImeAction() }),
