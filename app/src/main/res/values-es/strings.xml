@@ -1439,6 +1439,9 @@
     <string name="login_error_invalid">Usuario o contraseña incorrectos.</string>
     <string name="login_error_expired">Tu cuenta venció. Renuévala para entrar.</string>
     <string name="login_error_connection">No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="login_error_device_limit">Esta cuenta ya tiene todos sus dispositivos registrados. Cierra sesión en otro equipo o pide que quiten uno.</string>
+    <string name="login_error_device_removed">Este dispositivo fue quitado de tu cuenta. Vuelve a entrar con tu usuario y contraseña.</string>
+    <string name="account_device_line">Dispositivo: %1$s</string>
     <string name="account_linked">CUENTA VINCULADA</string>
     <string name="account_user_line">Usuario: %1$s</string>
     <string name="account_validity_line">Vigencia: %1$s</string>

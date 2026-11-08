@@ -184,6 +184,7 @@ enum class SongSort {
 object AppSettings {
 
     private lateinit var prefs: SharedPreferences
+    private var appContext: Context? = null
 
     /** Only for the Discord, WebDAV and SMB secrets — everything else on here is plain prefs. */
     private lateinit var authStore: AuthStore
@@ -942,6 +943,7 @@ object AppSettings {
      */
     fun init(context: Context, authStore: AuthStore) {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
+        appContext = context.applicationContext
         this.authStore = authStore
         com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
         com.music.bitchord.data.OfflinePlaylists.init(
@@ -1441,6 +1443,7 @@ object AppSettings {
         expiresAt: Long = 0L,
         trial: Boolean = false,
         offsetMs: Long = 0L,
+        deviceRegistered: Boolean = false,
     ) {
         panelUser.value = user
         panelPass.value = pass
@@ -1455,7 +1458,53 @@ object AppSettings {
             .putLong(KEY_PANEL_EXPIRES, expiresAt)
             .putBoolean(KEY_PANEL_TRIAL, trial)
             .putLong(KEY_PANEL_OFFSET, offsetMs)
+            .putBoolean(KEY_PANEL_DEVICE_REGISTERED, deviceRegistered)
             .apply()
+    }
+
+    /**
+     * Identificador de este dispositivo para el panel (de 8 a 64 letras y números). Usa el ANDROID_ID; si el
+     * equipo no lo da se genera uno al azar. Se guarda aparte de la sesión para que cerrar sesión no lo borre.
+     */
+    fun panelDeviceId(): String {
+        val saved = prefs.getString(KEY_PANEL_DEVICE_ID, null).orEmpty()
+        if (saved.isNotEmpty()) return saved
+        val androidId = runCatching {
+            android.provider.Settings.Secure.getString(
+                appContext?.contentResolver, android.provider.Settings.Secure.ANDROID_ID,
+            )
+        }.getOrNull().orEmpty()
+        val id = (
+            if (Regex("[0-9A-Fa-f]{8,64}").matches(androidId) && !androidId.equals("9774d56d682e549c", true)) androidId
+            else java.util.UUID.randomUUID().toString().replace("-", "")
+            ).lowercase()
+        prefs.edit().putString(KEY_PANEL_DEVICE_ID, id).apply()
+        return id
+    }
+
+    /** Nombre del equipo que se ve en el panel (por ejemplo "samsung SM-A546E"). */
+    fun panelDeviceLabel(): String {
+        val maker = android.os.Build.MANUFACTURER.orEmpty().trim()
+        val model = android.os.Build.MODEL.orEmpty().trim()
+        return if (model.startsWith(maker, ignoreCase = true)) model else "$maker $model".trim()
+    }
+
+    /** Si el panel ya confirmó el registro de este dispositivo en la cuenta de la sesión. */
+    fun isPanelDeviceRegistered(): Boolean = prefs.getBoolean(KEY_PANEL_DEVICE_REGISTERED, false)
+
+    fun setPanelDeviceRegistered(registered: Boolean) {
+        prefs.edit().putBoolean(KEY_PANEL_DEVICE_REGISTERED, registered).apply()
+    }
+
+    /** Cerrar sesión pedido por la persona: libera su lugar en el panel (en segundo plano) y borra la sesión. */
+    fun signOutPanel() {
+        val user = panelUser.value
+        val pass = panelPass.value
+        val device = panelDeviceId()
+        if (user.isNotBlank()) {
+            Thread { com.music.bitchord.data.PanelLogin.releaseDeviceBlocking(user, pass, device) }.start()
+        }
+        clearPanelSession()
     }
 
     /** Actualiza solo los datos de vigencia de la sesión actual (al revalidar). */
@@ -2284,6 +2333,8 @@ object AppSettings {
         KEY_PANEL_EXPIRES,
         KEY_PANEL_TRIAL,
         KEY_PANEL_OFFSET,
+        KEY_PANEL_DEVICE_ID,
+        KEY_PANEL_DEVICE_REGISTERED,
     )
 
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
@@ -2353,6 +2404,8 @@ object AppSettings {
     private const val KEY_PANEL_EXPIRES = "panel_expires"
     private const val KEY_PANEL_TRIAL = "panel_trial"
     private const val KEY_PANEL_OFFSET = "panel_offset"
+    private const val KEY_PANEL_DEVICE_ID = "panel_device_id"
+    private const val KEY_PANEL_DEVICE_REGISTERED = "panel_device_registered"
     private const val KEY_DIWALI_GREETING_SHOWN = "diwali_greeting_2026_shown"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"
     private const val KEY_PERFORMANCE_REFRESH_RATE = "performance_refresh_rate"

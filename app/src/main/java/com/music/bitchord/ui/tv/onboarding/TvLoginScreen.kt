@@ -68,10 +68,11 @@ fun TvLoginScreen(
         busy = true
         error = null
         scope.launch {
-            when (val result = PanelLogin.login(u, p)) {
+            when (val result = PanelLogin.login(u, p, AppSettings.panelDeviceId(), AppSettings.panelDeviceLabel())) {
                 is PanelLogin.Result.Success -> AppSettings.setPanelSession(
-                    u, p, result.host, result.expiresAt, result.trial, result.serverOffsetMs,
+                    u, p, result.host, result.expiresAt, result.trial, result.serverOffsetMs, result.deviceRegistered,
                 )
+                is PanelLogin.Result.DeviceLimit -> error = R.string.login_error_device_limit
                 PanelLogin.Result.Invalid -> error = R.string.login_error_invalid
                 PanelLogin.Result.Expired -> error = R.string.login_error_expired
                 PanelLogin.Result.NoConnection -> error = R.string.login_error_connection

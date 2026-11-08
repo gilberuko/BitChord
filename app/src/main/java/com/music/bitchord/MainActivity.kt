@@ -819,8 +819,26 @@ private fun BitChordApp(
         if (panelUser.isBlank() || !appForeground) return@LaunchedEffect
         loginNotice = null
         when (val checked = PanelLogin.revalidate(panelHost, panelUser, panelPass)) {
-            is PanelLogin.Result.Success ->
+            is PanelLogin.Result.Success -> {
                 AppSettings.updatePanelAccount(checked.expiresAt, checked.trial, checked.serverOffsetMs)
+                val device = if (AppSettings.isPanelDeviceRegistered()) {
+                    PanelLogin.checkDevice(panelUser, panelPass, AppSettings.panelDeviceId())
+                } else {
+                    PanelLogin.registerDevice(panelUser, panelPass, AppSettings.panelDeviceId(), AppSettings.panelDeviceLabel())
+                }
+                when (device.state) {
+                    PanelLogin.DeviceState.REMOVED -> {
+                        loginNotice = R.string.login_error_device_removed
+                        AppSettings.clearPanelSession()
+                    }
+                    PanelLogin.DeviceState.LIMIT -> {
+                        loginNotice = R.string.login_error_device_limit
+                        AppSettings.clearPanelSession()
+                    }
+                    PanelLogin.DeviceState.OK -> AppSettings.setPanelDeviceRegistered(true)
+                    PanelLogin.DeviceState.UNKNOWN -> Unit
+                }
+            }
             PanelLogin.Result.Invalid -> {
                 loginNotice = R.string.login_error_invalid
                 AppSettings.clearPanelSession()

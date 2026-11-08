@@ -149,6 +149,12 @@ fun TvSettingsScreen(
                 var confirmSignOut by remember { mutableStateOf(false) }
                 if (panelUser.isNotBlank()) {
                     TvListRow(
+                        title = "Dispositivo",
+                        value = AppSettings.panelDeviceId(),
+                        onFocused = { blurb = "Código de este equipo en tu cuenta. Si te lo piden para registrarlo, es este." },
+                        onClick = {},
+                    )
+                    TvListRow(
                         title = "Cerrar sesión de la cuenta",
                         value = panelUser,
                         destructive = true,
@@ -164,7 +170,7 @@ fun TvSettingsScreen(
                     ) {
                         TvDialogButton(
                             text = "Cerrar sesión",
-                            onClick = { confirmSignOut = false; AppSettings.clearPanelSession() },
+                            onClick = { confirmSignOut = false; AppSettings.signOutPanel() },
                             destructive = true,
                         )
                         TvDialogButton(text = "Cancelar", onClick = { confirmSignOut = false }, initialFocus = true)

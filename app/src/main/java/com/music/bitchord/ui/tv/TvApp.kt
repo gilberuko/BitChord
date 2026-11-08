@@ -190,8 +190,26 @@ fun TvApp(
         if (panelUser.isBlank()) return@LaunchedEffect
         loginNotice = null
         when (val checked = com.music.bitchord.data.PanelLogin.revalidate(panelHost, panelUser, panelPass)) {
-            is com.music.bitchord.data.PanelLogin.Result.Success ->
+            is com.music.bitchord.data.PanelLogin.Result.Success -> {
                 AppSettings.updatePanelAccount(checked.expiresAt, checked.trial, checked.serverOffsetMs)
+                val device = if (AppSettings.isPanelDeviceRegistered()) {
+                    com.music.bitchord.data.PanelLogin.checkDevice(panelUser, panelPass, AppSettings.panelDeviceId())
+                } else {
+                    com.music.bitchord.data.PanelLogin.registerDevice(panelUser, panelPass, AppSettings.panelDeviceId(), AppSettings.panelDeviceLabel())
+                }
+                when (device.state) {
+                    com.music.bitchord.data.PanelLogin.DeviceState.REMOVED -> {
+                        loginNotice = com.music.bitchord.R.string.login_error_device_removed
+                        AppSettings.clearPanelSession()
+                    }
+                    com.music.bitchord.data.PanelLogin.DeviceState.LIMIT -> {
+                        loginNotice = com.music.bitchord.R.string.login_error_device_limit
+                        AppSettings.clearPanelSession()
+                    }
+                    com.music.bitchord.data.PanelLogin.DeviceState.OK -> AppSettings.setPanelDeviceRegistered(true)
+                    com.music.bitchord.data.PanelLogin.DeviceState.UNKNOWN -> Unit
+                }
+            }
             com.music.bitchord.data.PanelLogin.Result.Invalid -> {
                 loginNotice = com.music.bitchord.R.string.login_error_invalid
                 AppSettings.clearPanelSession()

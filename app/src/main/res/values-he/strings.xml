@@ -1472,6 +1472,9 @@
     <string name="login_error_invalid">Incorrect user or password.</string>
     <string name="login_error_expired">Your account has expired. Renew it to sign in.</string>
     <string name="login_error_connection">Couldn’t reach the server. Check your connection and try again.</string>
+    <string name="login_error_device_limit">This account already has all its devices registered. Sign out on another device or ask for one to be removed.</string>
+    <string name="login_error_device_removed">This device was removed from your account. Sign in again with your user and password.</string>
+    <string name="account_device_line">Device: %1$s</string>
     <string name="account_linked">LINKED ACCOUNT</string>
     <string name="account_user_line">User: %1$s</string>
     <string name="account_validity_line">Validity: %1$s</string>

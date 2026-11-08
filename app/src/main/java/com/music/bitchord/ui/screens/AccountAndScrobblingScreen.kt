@@ -108,6 +108,13 @@ fun AccountAndScrobblingScreen(
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.account_device_line, AppSettings.panelDeviceId()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
             SettingsGroup(topSpacing = 14.dp) {
                 DestructiveRow(
                     label = stringResource(R.string.account_sign_out_panel),
@@ -124,7 +131,7 @@ fun AccountAndScrobblingScreen(
                 confirmButton = {
                     TextButton(onClick = {
                         confirmPanelSignOut = false
-                        AppSettings.clearPanelSession()
+                        AppSettings.signOutPanel()
                     }) {
                         Text(stringResource(R.string.account_sign_out_panel), color = Color(0xFFFF6B6B))
                     }

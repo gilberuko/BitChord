@@ -37,12 +37,24 @@ object PanelLogin {
             val expiresAt: Long = 0L,
             val trial: Boolean = false,
             val serverOffsetMs: Long = 0L,
+            /** El panel confirmó el registro de este dispositivo en la cuenta. */
+            val deviceRegistered: Boolean = false,
         ) : Result
+        /** La cuenta ya tiene todos sus dispositivos registrados ([max] = cuántos permite). */
+        data class DeviceLimit(val max: Int) : Result
         data object Invalid : Result
         data object Expired : Result
         /** No se pudo hablar con el panel ni con ningún servidor. */
         data object NoConnection : Result
     }
+
+    /** Respuesta del panel sobre el registro de este dispositivo. UNKNOWN: el panel no lo maneja o no hubo conexión. */
+    enum class DeviceState { OK, LIMIT, REMOVED, UNKNOWN }
+
+    data class Device(val state: DeviceState, val max: Int = 0)
+
+    /** Clave con la que el panel reconoce esta app. */
+    private const val APP_KEY = "spoty"
 
     private enum class State { ACTIVE, EXPIRED, INVALID, NO_SERVER }
 
@@ -61,8 +73,11 @@ object PanelLogin {
             .build()
     }
 
-    /** Primer inicio de sesión: prueba todos los servidores del panel. */
-    suspend fun login(user: String, pass: String): Result = withContext(Dispatchers.IO) {
+    /**
+     * Primer inicio de sesión: prueba todos los servidores del panel. Con una cuenta válida registra este
+     * dispositivo en el panel (máximo 4 por cuenta); sin lugar devuelve [Result.DeviceLimit].
+     */
+    suspend fun login(user: String, pass: String, deviceId: String, label: String): Result = withContext(Dispatchers.IO) {
         val hosts = runCatching { portals() }.getOrDefault(emptyList())
         if (hosts.isEmpty()) return@withContext Result.NoConnection
         var invalid = false
@@ -70,7 +85,11 @@ object PanelLogin {
         for (host in hosts) {
             val probe = probe(host, user, pass)
             when (probe.state) {
-                State.ACTIVE -> return@withContext probe.toSuccess(host)
+                State.ACTIVE -> {
+                    val device = deviceCall("login", user, pass, deviceId, label)
+                    if (device.state == DeviceState.LIMIT) return@withContext Result.DeviceLimit(device.max)
+                    return@withContext probe.toSuccess(host, device.state == DeviceState.OK)
+                }
                 State.EXPIRED -> expired = true
                 State.INVALID -> invalid = true
                 State.NO_SERVER -> Unit
@@ -97,6 +116,46 @@ object PanelLogin {
                 State.NO_SERVER -> Result.NoConnection
             }
         }
+
+    // ---- Dispositivos de la cuenta -------------------------------------------
+
+    /** Registra este dispositivo en la cuenta (si ya estaba, solo anota la conexión). */
+    suspend fun registerDevice(user: String, pass: String, deviceId: String, label: String): Device =
+        withContext(Dispatchers.IO) { deviceCall("login", user, pass, deviceId, label) }
+
+    /** Pregunta si este dispositivo sigue registrado ([DeviceState.REMOVED] = lo quitaron desde el panel). */
+    suspend fun checkDevice(user: String, pass: String, deviceId: String): Device =
+        withContext(Dispatchers.IO) { deviceCall("check", user, pass, deviceId, "") }
+
+    /** Cerrar sesión: libera el lugar de este dispositivo. Bloquea: llamar desde un hilo de fondo. */
+    fun releaseDeviceBlocking(user: String, pass: String, deviceId: String) {
+        deviceCall("logout", user, pass, deviceId, "")
+    }
+
+    private fun deviceCall(mode: String, user: String, pass: String, deviceId: String, label: String): Device {
+        return try {
+            val url = "$PANEL_BASE/api/app_device.php".toHttpUrlOrNull()?.newBuilder()
+                ?.addQueryParameter("username", user)
+                ?.addQueryParameter("password", pass)
+                ?.addQueryParameter("modo", mode)
+                ?.addQueryParameter("app", APP_KEY)
+                ?.addQueryParameter("device", deviceId)
+                ?.addQueryParameter("label", label)
+                ?.build() ?: return Device(DeviceState.UNKNOWN)
+            val d = JSONObject(get(url.toString())).optJSONObject("app_device")
+                ?: return Device(DeviceState.UNKNOWN)
+            val max = d.optInt("max", 0)
+            when (d.optString("status")) {
+                "ok" -> Device(DeviceState.OK, max)
+                "limit" -> Device(DeviceState.LIMIT, max)
+                "removed" -> Device(DeviceState.REMOVED, max)
+                else -> Device(DeviceState.UNKNOWN, max)
+            }
+        } catch (e: Exception) {
+            // Panel sin esta función o sin conexión: no se bloquea a nadie por eso.
+            Device(DeviceState.UNKNOWN)
+        }
+    }
 
     // ---- Panel: lista de servidores ----------------------------------------
 
@@ -126,8 +185,8 @@ object PanelLogin {
 
     // ---- Servidor Xtream ----------------------------------------------------
 
-    private fun Probe.toSuccess(host: String) =
-        Result.Success(host, expiresAt, trial, serverOffsetMs)
+    private fun Probe.toSuccess(host: String, deviceRegistered: Boolean = false) =
+        Result.Success(host, expiresAt, trial, serverOffsetMs, deviceRegistered)
 
     private fun probe(host: String, user: String, pass: String): Probe {
         return try {
