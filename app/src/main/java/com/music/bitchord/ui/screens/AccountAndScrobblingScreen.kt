@@ -19,7 +19,13 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,32 +85,56 @@ fun AccountAndScrobblingScreen(
 
         // Cuenta vinculada al panel: lo primero de la pantalla.
         val panelUser by AppSettings.panelUser.collectAsStateWithLifecycle()
+        var confirmPanelSignOut by remember { mutableStateOf(false) }
         if (panelUser.isNotBlank()) {
             Text(
                 text = stringResource(R.string.account_linked),
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = stringResource(R.string.account_user_line, panelUser),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = stringResource(R.string.account_validity_line, panelValidityText()),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
             SettingsGroup(topSpacing = 14.dp) {
                 DestructiveRow(
                     label = stringResource(R.string.account_sign_out_panel),
-                    onClick = { AppSettings.clearPanelSession() },
+                    onClick = { confirmPanelSignOut = true },
                 )
             }
             Spacer(Modifier.height(10.dp))
+        }
+        if (confirmPanelSignOut) {
+            AlertDialog(
+                onDismissRequest = { confirmPanelSignOut = false },
+                title = { Text(stringResource(R.string.logout_confirm_title)) },
+                text = { Text(stringResource(R.string.logout_confirm_message)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirmPanelSignOut = false
+                        AppSettings.clearPanelSession()
+                    }) {
+                        Text(stringResource(R.string.account_sign_out_panel), color = Color(0xFFFF6B6B))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmPanelSignOut = false }) {
+                        Text(stringResource(R.string.logout_cancel))
+                    }
+                },
+            )
         }
 
         // One card: who is signed in, which profile is listening, and the way

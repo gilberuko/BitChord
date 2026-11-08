@@ -1514,4 +1514,7 @@
     <string name="notice_expires">Expires on %1$s</string>
     <string name="notice_renew">Renew now so you don’t lose the service.</string>
     <string name="notice_close">Got it</string>
+    <string name="logout_confirm_title">Sign out?</string>
+    <string name="logout_confirm_message">You will need your user and password to sign in again.</string>
+    <string name="logout_cancel">Cancel</string>
 </resources>

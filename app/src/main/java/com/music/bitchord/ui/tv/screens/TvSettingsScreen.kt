@@ -34,6 +34,8 @@ import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.tv.TvAppMark
 import com.music.bitchord.ui.tv.audio.TvSpatialAudioEngine
 import com.music.bitchord.ui.tv.components.TvChromePinned
+import com.music.bitchord.ui.tv.components.TvDialog
+import com.music.bitchord.ui.tv.components.TvDialogButton
 import com.music.bitchord.ui.tv.components.TvListHeader
 import com.music.bitchord.ui.tv.components.TvListRow
 import com.music.bitchord.ui.tv.dialogs.TvAboutDialog
@@ -144,14 +146,29 @@ fun TvSettingsScreen(
 
             item {
                 val panelUser by AppSettings.panelUser.collectAsState()
+                var confirmSignOut by remember { mutableStateOf(false) }
                 if (panelUser.isNotBlank()) {
                     TvListRow(
                         title = "Cerrar sesión de la cuenta",
                         value = panelUser,
                         destructive = true,
                         onFocused = { blurb = "Cierra la sesión de $panelUser en este equipo; para volver a entrar se pide usuario y contraseña." },
-                        onClick = { AppSettings.clearPanelSession() },
+                        onClick = { confirmSignOut = true },
                     )
+                }
+                if (confirmSignOut) {
+                    TvDialog(
+                        onDismissRequest = { confirmSignOut = false },
+                        title = "Cerrar sesión",
+                        message = "¿Seguro que quieres cerrar la sesión de $panelUser en este equipo?",
+                    ) {
+                        TvDialogButton(
+                            text = "Cerrar sesión",
+                            onClick = { confirmSignOut = false; AppSettings.clearPanelSession() },
+                            destructive = true,
+                        )
+                        TvDialogButton(text = "Cancelar", onClick = { confirmSignOut = false }, initialFocus = true)
+                    }
                 }
             }
 

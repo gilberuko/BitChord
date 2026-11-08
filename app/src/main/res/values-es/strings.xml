@@ -1454,4 +1454,7 @@
     <string name="notice_expires">Vence el %1$s</string>
     <string name="notice_renew">Renueva ahora para no quedarte sin servicio.</string>
     <string name="notice_close">Entendido</string>
+    <string name="logout_confirm_title">¿Cerrar sesión?</string>
+    <string name="logout_confirm_message">Para volver a entrar necesitarás tu usuario y contraseña.</string>
+    <string name="logout_cancel">Cancelar</string>
 </resources>
