@@ -101,6 +101,19 @@ fun AccountAndScrobblingScreen(
             }
         }
 
+        val panelUser by AppSettings.panelUser.collectAsStateWithLifecycle()
+        if (panelUser.isNotBlank()) {
+            SettingsGroup(
+                header = stringResource(R.string.panel_account),
+                footer = stringResource(R.string.panel_account_footer, panelUser),
+            ) {
+                DestructiveRow(
+                    label = stringResource(R.string.panel_sign_out),
+                    onClick = { AppSettings.clearPanelSession() },
+                )
+            }
+        }
+
         SettingsGroup(
             header = stringResource(R.string.spotify),
             footer = stringResource(R.string.spotify_connect_subtitle),

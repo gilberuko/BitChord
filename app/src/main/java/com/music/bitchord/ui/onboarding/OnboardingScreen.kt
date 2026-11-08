@@ -301,7 +301,7 @@ private fun ColumnScope.ConnectPage(
 
 /** Replay's heading, scaled up: the one line each page exists to say. */
 @Composable
-private fun Title(text: String) {
+internal fun Title(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.displayLarge.copy(
@@ -365,7 +365,7 @@ private fun NameField(value: String, onValueChange: (String) -> Unit, onDone: ()
  * the pair reads as a choice rather than a button and an afterthought.
  */
 @Composable
-private fun PillButton(
+internal fun PillButton(
     label: String,
     onClick: () -> Unit,
     primary: Boolean,

@@ -129,6 +129,7 @@ import com.music.bitchord.auth.SpotifyLoginScreen
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.AppUpdateChecker
+import com.music.bitchord.data.PanelLogin
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.data.listentogether.ListenTogether
@@ -349,6 +350,7 @@ import com.music.bitchord.ui.screens.LibraryScreen
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.settings.SongSort
+import com.music.bitchord.ui.onboarding.LoginScreen
 import com.music.bitchord.ui.onboarding.OnboardingScreen
 import com.music.bitchord.ui.festive.DiwaliGate
 import com.music.bitchord.ui.festive.DiwaliGreetingScreen
@@ -797,7 +799,29 @@ private fun BitChordApp(
     // the mesh while it is still on its way off the screen.
     val onboardingShown = remember { MutableTransitionState(!onboardingComplete) }
     onboardingShown.targetState = !onboardingComplete
-    val onboardingVisible = onboardingShown.currentState || onboardingShown.targetState
+    // Sesión del panel ibo: sin ella solo se ve el login, dibujado encima de todo.
+    val panelUser by AppSettings.panelUser.collectAsStateWithLifecycle()
+    val panelPass by AppSettings.panelPass.collectAsStateWithLifecycle()
+    val panelHost by AppSettings.panelHost.collectAsStateWithLifecycle()
+    var loginNotice by remember { mutableStateOf<Int?>(null) }
+    val onboardingVisible = onboardingShown.currentState || onboardingShown.targetState || panelUser.isBlank()
+    // Al abrir la app (y al volver a ella) se revisa que la cuenta siga vigente.
+    // Sin conexión se conserva la sesión; solo una cuenta inválida o vencida la cierra.
+    LaunchedEffect(panelUser, appForeground) {
+        if (panelUser.isBlank() || !appForeground) return@LaunchedEffect
+        loginNotice = null
+        when (PanelLogin.revalidate(panelHost, panelUser, panelPass)) {
+            PanelLogin.Result.Invalid -> {
+                loginNotice = R.string.login_error_invalid
+                AppSettings.clearPanelSession()
+            }
+            PanelLogin.Result.Expired -> {
+                loginNotice = R.string.login_error_expired
+                AppSettings.clearPanelSession()
+            }
+            else -> Unit
+        }
+    }
 
     // ---- Diwali (greeting once after the welcome, golden home wordmark) ----
     // Indian users only, by the device timezone alone, and only on Diwali
@@ -5318,6 +5342,11 @@ private fun BitChordApp(
                 onSignIn = { webSession = WebSessionMode.SIGN_IN },
                 onFinish = AppSettings::setOnboardingComplete,
             )
+        }
+
+        // ---- Login del panel ibo (encima de todo; sin sesión no se entra) ----
+        if (panelUser.isBlank()) {
+            LoginScreen(initialError = loginNotice)
         }
 
         // ---- Google sign-in (full screen WebView) ----

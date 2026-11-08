@@ -437,6 +437,11 @@ object AppSettings {
      */
     val onboardingComplete = MutableStateFlow(false)
 
+    /** Sesión del panel ibo (usuario, clave y servidor donde se validó). Vacío = sin sesión. */
+    val panelUser = MutableStateFlow("")
+    val panelPass = MutableStateFlow("")
+    val panelHost = MutableStateFlow("")
+
     /** Whether the one-time Diwali 2026 greeting has been seen and dismissed. */
     val diwaliGreetingShown = MutableStateFlow(false)
 
@@ -1021,6 +1026,9 @@ object AppSettings {
         showListenTogetherButton.value = prefs.getBoolean(KEY_LISTEN_TOGETHER_BUTTON, false)
         reduceAnimation.value = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
         onboardingComplete.value = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
+        panelUser.value = prefs.getString(KEY_PANEL_USER, null).orEmpty()
+        panelPass.value = prefs.getString(KEY_PANEL_PASS, null).orEmpty()
+        panelHost.value = prefs.getString(KEY_PANEL_HOST, null).orEmpty()
         diwaliGreetingShown.value = prefs.getBoolean(KEY_DIWALI_GREETING_SHOWN, false)
         highPerformanceMode.value = prefs.getBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
         performanceRefreshRate.value = normalizePerformanceRefreshRate(
@@ -1418,6 +1426,19 @@ object AppSettings {
         if (value) editor.putBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
         editor.apply()
     }
+
+    fun setPanelSession(user: String, pass: String, host: String) {
+        panelUser.value = user
+        panelPass.value = pass
+        panelHost.value = host
+        prefs.edit()
+            .putString(KEY_PANEL_USER, user)
+            .putString(KEY_PANEL_PASS, pass)
+            .putString(KEY_PANEL_HOST, host)
+            .apply()
+    }
+
+    fun clearPanelSession() = setPanelSession("", "", "")
 
     fun setOnboardingComplete() {
         onboardingComplete.value = true
@@ -2224,6 +2245,9 @@ object AppSettings {
         KEY_LOCAL_MUSIC_FOLDER_URI,
         KEY_LAST_VERSION_CODE,
         KEY_ONBOARDING_COMPLETE,
+        KEY_PANEL_USER,
+        KEY_PANEL_PASS,
+        KEY_PANEL_HOST,
     )
 
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
@@ -2287,6 +2311,9 @@ object AppSettings {
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
     private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
+    private const val KEY_PANEL_USER = "panel_user"
+    private const val KEY_PANEL_PASS = "panel_pass"
+    private const val KEY_PANEL_HOST = "panel_host"
     private const val KEY_DIWALI_GREETING_SHOWN = "diwali_greeting_2026_shown"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"
     private const val KEY_PERFORMANCE_REFRESH_RATE = "performance_refresh_rate"

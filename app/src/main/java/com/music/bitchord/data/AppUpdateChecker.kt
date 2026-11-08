@@ -65,7 +65,15 @@ object AppUpdateChecker {
     @Volatile
     private var downloadCancelled = false
 
+    /**
+     * Desactivado: esta compilación es propia y su login se perdería con la
+     * versión del BitChord original, así que nunca se consulta ni se ofrece
+     * ninguna actualización.
+     */
+    private const val UPDATES_ENABLED = false
+
     suspend fun check() = withContext(Dispatchers.IO) {
+        if (!UPDATES_ENABLED) return@withContext
         runCatching {
             val request = Request.Builder().url(LATEST_RELEASE_URL).build()
             val body = Http.client.newCall(request).execute().use { response ->

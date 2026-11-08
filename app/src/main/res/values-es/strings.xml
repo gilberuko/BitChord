@@ -1429,4 +1429,17 @@
     <string name="bit_perfect_status_inexact">%1$s · no exacto: esta fuente no es PCM sin pérdida</string>
     <string name="bit_perfect_status_waiting">Esperando una pista sin pérdida en una salida compatible</string>
     <string name="bit_perfect_status_unavailable">No disponible para esta pista (%1$s)</string>
+    <string name="login_title">Inicia sesión en BitChord</string>
+    <string name="login_prompt">Ingresa los datos de tu cuenta</string>
+    <string name="login_user_hint">Usuario</string>
+    <string name="login_pass_hint">Contraseña</string>
+    <string name="login_footer">Usa el usuario y la contraseña que te dieron.</string>
+    <string name="login_button">Entrar</string>
+    <string name="login_checking">Verificando…</string>
+    <string name="login_error_invalid">Usuario o contraseña incorrectos.</string>
+    <string name="login_error_expired">Tu cuenta venció. Renuévala para entrar.</string>
+    <string name="login_error_connection">No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.</string>
+    <string name="panel_account">Cuenta</string>
+    <string name="panel_account_footer">Sesión iniciada como %1$s.</string>
+    <string name="panel_sign_out">Cerrar sesión de la cuenta</string>
 </resources>
