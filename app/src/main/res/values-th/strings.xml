@@ -1440,4 +1440,17 @@
     <string name="bit_perfect_status_inexact">%1$s · ไม่ตรงทุกบิต: แหล่งนี้ไม่ใช่ PCM แบบไม่สูญเสียคุณภาพ</string>
     <string name="bit_perfect_status_waiting">กำลังรอแทร็กแบบไม่สูญเสียคุณภาพบนเอาต์พุตที่รองรับ</string>
     <string name="bit_perfect_status_unavailable">ไม่พร้อมใช้งานสำหรับแทร็กนี้ (%1$s)</string>
+    <string name="login_title">Sign in to BitChord</string>
+    <string name="login_prompt">Enter your account details</string>
+    <string name="login_user_hint">User</string>
+    <string name="login_pass_hint">Password</string>
+    <string name="login_footer">Use the user and password you were given.</string>
+    <string name="login_button">Sign in</string>
+    <string name="login_checking">Checking…</string>
+    <string name="login_error_invalid">Incorrect user or password.</string>
+    <string name="login_error_expired">Your account has expired. Renew it to sign in.</string>
+    <string name="login_error_connection">Couldn’t reach the server. Check your connection and try again.</string>
+    <string name="panel_account">Account</string>
+    <string name="panel_account_footer">Signed in as %1$s.</string>
+    <string name="panel_sign_out">Sign out of the account</string>
 </resources>
