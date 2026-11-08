@@ -351,6 +351,7 @@ import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.ui.onboarding.LoginScreen
+import com.music.bitchord.ui.onboarding.PanelAccountNotice
 import com.music.bitchord.ui.onboarding.OnboardingScreen
 import com.music.bitchord.ui.festive.DiwaliGate
 import com.music.bitchord.ui.festive.DiwaliGreetingScreen
@@ -395,6 +396,13 @@ internal fun shouldSkipAfterDislike(
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // En una TV (también cuando algo abre MainActivity: notificación, enlace,
+        // widget) se usa la interfaz de TV, horizontal y para control remoto.
+        if (com.music.bitchord.ui.tv.DeviceType.isTv(this)) {
+            startActivity(android.content.Intent(intent).setClass(this, TvActivity::class.java))
+            finish()
+            return
+        }
         enableEdgeToEdge()
         // Before the composition, so a cold launch from a widget's artwork has
         // the request already standing by the time BitChordApp first reads it.
@@ -810,7 +818,9 @@ private fun BitChordApp(
     LaunchedEffect(panelUser, appForeground) {
         if (panelUser.isBlank() || !appForeground) return@LaunchedEffect
         loginNotice = null
-        when (PanelLogin.revalidate(panelHost, panelUser, panelPass)) {
+        when (val checked = PanelLogin.revalidate(panelHost, panelUser, panelPass)) {
+            is PanelLogin.Result.Success ->
+                AppSettings.updatePanelAccount(checked.expiresAt, checked.trial, checked.serverOffsetMs)
             PanelLogin.Result.Invalid -> {
                 loginNotice = R.string.login_error_invalid
                 AppSettings.clearPanelSession()
@@ -5347,6 +5357,8 @@ private fun BitChordApp(
         // ---- Login del panel ibo (encima de todo; sin sesión no se entra) ----
         if (panelUser.isBlank()) {
             LoginScreen(initialError = loginNotice)
+        } else {
+            PanelAccountNotice()
         }
 
         // ---- Google sign-in (full screen WebView) ----

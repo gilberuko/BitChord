@@ -154,7 +154,7 @@ object TvAuthServer {
                 when {
                     // 1. API: Get Current Status
                     path == "/api/status" -> {
-                        val status = statusProvider?.invoke() ?: TvRemoteStatus(false, "No Song Playing", "BitChord TV", null, 0, 0)
+                        val status = statusProvider?.invoke() ?: TvRemoteStatus(false, "No Song Playing", "Spoty OTTMTY", null, 0, 0)
                         val json = JSONObject().apply {
                             put("isPlaying", status.isPlaying)
                             put("title", status.title)
@@ -418,7 +418,7 @@ function fmtTime(ms) {
 function updateStatus() {
   fetch('/api/status').then(r => r.json()).then(data => {
     document.getElementById('trackTitle').innerText = data.title || "No Song Playing";
-    document.getElementById('trackArtist').innerText = data.artist || "BitChord TV";
+    document.getElementById('trackArtist').innerText = data.artist || "Spoty OTTMTY";
     let art = document.getElementById('trackArt');
     if (data.artworkUrl) { art.src = data.artworkUrl; art.style.display = 'block'; } else { art.style.display = 'none'; }
     document.getElementById('playBtn').innerText = data.isPlaying ? '❚❚' : '▶';

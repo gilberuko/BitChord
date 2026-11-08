@@ -189,7 +189,9 @@ fun TvApp(
     LaunchedEffect(panelUser) {
         if (panelUser.isBlank()) return@LaunchedEffect
         loginNotice = null
-        when (com.music.bitchord.data.PanelLogin.revalidate(panelHost, panelUser, panelPass)) {
+        when (val checked = com.music.bitchord.data.PanelLogin.revalidate(panelHost, panelUser, panelPass)) {
+            is com.music.bitchord.data.PanelLogin.Result.Success ->
+                AppSettings.updatePanelAccount(checked.expiresAt, checked.trial, checked.serverOffsetMs)
             com.music.bitchord.data.PanelLogin.Result.Invalid -> {
                 loginNotice = com.music.bitchord.R.string.login_error_invalid
                 AppSettings.clearPanelSession()
@@ -263,6 +265,8 @@ fun TvApp(
 
         if (panelUser.isBlank()) {
             com.music.bitchord.ui.tv.onboarding.TvLoginScreen(initialError = loginNotice)
+        } else {
+            com.music.bitchord.ui.onboarding.PanelAccountNotice()
         }
 
         if (showAccountDialog && panelUser.isNotBlank() && !isRunningSetup) {
@@ -589,7 +593,7 @@ private fun TvTopBar(
         // The mark only, as the phone's Home heading shows it.
         Icon(
             painter = painterResource(R.drawable.ic_logo),
-            contentDescription = "BitChord",
+            contentDescription = "Spoty OTTMTY",
             tint = TvGlass.TextPrimary,
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -696,7 +700,7 @@ fun TvAppMark(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp =
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_logo),
-            contentDescription = "BitChord",
+            contentDescription = "Spoty OTTMTY",
             tint = Color.White,
             modifier = Modifier.size(size * 0.52f),
         )

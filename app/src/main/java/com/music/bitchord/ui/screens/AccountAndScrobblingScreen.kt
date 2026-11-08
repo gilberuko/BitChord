@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import com.music.bitchord.ui.onboarding.panelValidityText
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
@@ -75,6 +77,36 @@ fun AccountAndScrobblingScreen(
     ) {
         SettingsPageTitle(stringResource(R.string.account_integrations))
 
+        // Cuenta vinculada al panel: lo primero de la pantalla.
+        val panelUser by AppSettings.panelUser.collectAsStateWithLifecycle()
+        if (panelUser.isNotBlank()) {
+            Text(
+                text = stringResource(R.string.account_linked),
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.account_user_line, panelUser),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.account_validity_line, panelValidityText()),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+            SettingsGroup(topSpacing = 14.dp) {
+                DestructiveRow(
+                    label = stringResource(R.string.account_sign_out_panel),
+                    onClick = { AppSettings.clearPanelSession() },
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+
         // One card: who is signed in, which profile is listening, and the way
         // out, with the explanation of profiles underneath.
         SettingsGroup(
@@ -98,19 +130,6 @@ fun AccountAndScrobblingScreen(
                 )
                 FullWidthDivider()
                 DestructiveRow(label = stringResource(R.string.sign_out), onClick = onSignOut)
-            }
-        }
-
-        val panelUser by AppSettings.panelUser.collectAsStateWithLifecycle()
-        if (panelUser.isNotBlank()) {
-            SettingsGroup(
-                header = stringResource(R.string.panel_account),
-                footer = stringResource(R.string.panel_account_footer, panelUser),
-            ) {
-                DestructiveRow(
-                    label = stringResource(R.string.panel_sign_out),
-                    onClick = { AppSettings.clearPanelSession() },
-                )
             }
         }
 

@@ -441,6 +441,10 @@ object AppSettings {
     val panelUser = MutableStateFlow("")
     val panelPass = MutableStateFlow("")
     val panelHost = MutableStateFlow("")
+    /** Vencimiento de la cuenta en segundos (0 = sin vencimiento), si es demo, y desfase con la hora del servidor. */
+    val panelExpires = MutableStateFlow(0L)
+    val panelTrial = MutableStateFlow(false)
+    val panelOffsetMs = MutableStateFlow(0L)
 
     /** Whether the one-time Diwali 2026 greeting has been seen and dismissed. */
     val diwaliGreetingShown = MutableStateFlow(false)
@@ -1029,6 +1033,9 @@ object AppSettings {
         panelUser.value = prefs.getString(KEY_PANEL_USER, null).orEmpty()
         panelPass.value = prefs.getString(KEY_PANEL_PASS, null).orEmpty()
         panelHost.value = prefs.getString(KEY_PANEL_HOST, null).orEmpty()
+        panelExpires.value = prefs.getLong(KEY_PANEL_EXPIRES, 0L)
+        panelTrial.value = prefs.getBoolean(KEY_PANEL_TRIAL, false)
+        panelOffsetMs.value = prefs.getLong(KEY_PANEL_OFFSET, 0L)
         diwaliGreetingShown.value = prefs.getBoolean(KEY_DIWALI_GREETING_SHOWN, false)
         highPerformanceMode.value = prefs.getBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
         performanceRefreshRate.value = normalizePerformanceRefreshRate(
@@ -1427,14 +1434,40 @@ object AppSettings {
         editor.apply()
     }
 
-    fun setPanelSession(user: String, pass: String, host: String) {
+    fun setPanelSession(
+        user: String,
+        pass: String,
+        host: String,
+        expiresAt: Long = 0L,
+        trial: Boolean = false,
+        offsetMs: Long = 0L,
+    ) {
         panelUser.value = user
         panelPass.value = pass
         panelHost.value = host
+        panelExpires.value = expiresAt
+        panelTrial.value = trial
+        panelOffsetMs.value = offsetMs
         prefs.edit()
             .putString(KEY_PANEL_USER, user)
             .putString(KEY_PANEL_PASS, pass)
             .putString(KEY_PANEL_HOST, host)
+            .putLong(KEY_PANEL_EXPIRES, expiresAt)
+            .putBoolean(KEY_PANEL_TRIAL, trial)
+            .putLong(KEY_PANEL_OFFSET, offsetMs)
+            .apply()
+    }
+
+    /** Actualiza solo los datos de vigencia de la sesión actual (al revalidar). */
+    fun updatePanelAccount(expiresAt: Long, trial: Boolean, offsetMs: Long) {
+        if (panelUser.value.isBlank()) return
+        panelExpires.value = expiresAt
+        panelTrial.value = trial
+        panelOffsetMs.value = offsetMs
+        prefs.edit()
+            .putLong(KEY_PANEL_EXPIRES, expiresAt)
+            .putBoolean(KEY_PANEL_TRIAL, trial)
+            .putLong(KEY_PANEL_OFFSET, offsetMs)
             .apply()
     }
 
@@ -2248,6 +2281,9 @@ object AppSettings {
         KEY_PANEL_USER,
         KEY_PANEL_PASS,
         KEY_PANEL_HOST,
+        KEY_PANEL_EXPIRES,
+        KEY_PANEL_TRIAL,
+        KEY_PANEL_OFFSET,
     )
 
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
@@ -2314,6 +2350,9 @@ object AppSettings {
     private const val KEY_PANEL_USER = "panel_user"
     private const val KEY_PANEL_PASS = "panel_pass"
     private const val KEY_PANEL_HOST = "panel_host"
+    private const val KEY_PANEL_EXPIRES = "panel_expires"
+    private const val KEY_PANEL_TRIAL = "panel_trial"
+    private const val KEY_PANEL_OFFSET = "panel_offset"
     private const val KEY_DIWALI_GREETING_SHOWN = "diwali_greeting_2026_shown"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"
     private const val KEY_PERFORMANCE_REFRESH_RATE = "performance_refresh_rate"

@@ -14,9 +14,12 @@ import com.music.bitchord.ui.tv.DeviceType
 class TvStartup : Initializer<Unit> {
     override fun create(context: Context) {
         TvSettings.init(context)
-        TvUsbMusic.install()
-        // A looping canvas clip at 24 fps is plenty behind the player and spares the TV GPU.
-        if (DeviceType.isTv(context)) CanvasPlaybackLimits.maxFrameRate = 24
+        // Los ganchos de TV solo se instalan en una TV; en el celular no hacen nada.
+        if (DeviceType.isTv(context)) {
+            TvUsbMusic.install()
+            // A looping canvas clip at 24 fps is plenty behind the player and spares the TV GPU.
+            CanvasPlaybackLimits.maxFrameRate = 24
+        }
     }
 
     override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()

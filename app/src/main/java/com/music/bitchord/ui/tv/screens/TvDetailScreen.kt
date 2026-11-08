@@ -229,7 +229,7 @@ private fun TvReleaseContent(
                     if (songsState.message.contains("permission", ignoreCase = true)) {
                         TvEmptyState(
                             title = "Allow Access to Music",
-                            message = "BitChord needs permission to read music on this TV and on connected USB drives.",
+                            message = "Spoty OTTMTY needs permission to read music on this TV and on connected USB drives.",
                             modifier = Modifier.height(224.dp),
                             action = { TvButton(text = "Allow Access", onClick = onRequestPermission) },
                         )

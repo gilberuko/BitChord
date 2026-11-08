@@ -74,7 +74,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.music.bitchord"
+        applicationId = "com.ottmty.spot"
         // 26 keeps reach wide; real-time blur (RenderEffect) kicks in on API 31+,
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
@@ -133,7 +133,7 @@ android {
         create("dev") {
             dimension = "env"
             applicationId = "com.dev.bitchord"
-            resValue("string", "app_name", "BitChord Dev")
+            resValue("string", "app_name", "Spoty Dev")
         }
         create("prod") {
             dimension = "env"
@@ -414,6 +414,11 @@ dependencies {
     implementation("com.hierynomus:smbj:0.15.0")
 
     // Los modelos de IA de Automix y voces (y onnxruntime) se quitaron para reducir el peso de la app.
+
+    // ---- Android TV (Compose for TV): la misma app trae también la interfaz de TV ----
+    implementation("androidx.tv:tv-material:1.0.0")
+    implementation("androidx.tv:tv-foundation:1.0.0-alpha12")
+    implementation("androidx.startup:startup-runtime:1.2.0")
 
     // ---- Casting: Google Cast sender + the route discovery it sits on ----
     // The framework and the router only. media3-cast is left out on purpose:

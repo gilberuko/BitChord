@@ -25,8 +25,19 @@ object PanelLogin {
     const val PANEL_BASE = "https://ottmty.xyz/ott17"
 
     sealed interface Result {
-        /** Cuenta válida y vigente; [host] es el servidor donde se validó. */
-        data class Success(val host: String) : Result
+        /**
+         * Cuenta válida y vigente. [host] es el servidor donde se validó;
+         * [expiresAt] el vencimiento en segundos (0 = sin vencimiento); [trial]
+         * si es un demo; [serverOffsetMs] la diferencia entre la hora del
+         * servidor y la del equipo, para que el contador no dependa del reloj
+         * del celular.
+         */
+        data class Success(
+            val host: String,
+            val expiresAt: Long = 0L,
+            val trial: Boolean = false,
+            val serverOffsetMs: Long = 0L,
+        ) : Result
         data object Invalid : Result
         data object Expired : Result
         /** No se pudo hablar con el panel ni con ningún servidor. */
@@ -34,6 +45,13 @@ object PanelLogin {
     }
 
     private enum class State { ACTIVE, EXPIRED, INVALID, NO_SERVER }
+
+    private class Probe(
+        val state: State,
+        val expiresAt: Long = 0L,
+        val trial: Boolean = false,
+        val serverOffsetMs: Long = 0L,
+    )
 
     private val client by lazy {
         Http.client.newBuilder()
@@ -50,8 +68,9 @@ object PanelLogin {
         var invalid = false
         var expired = false
         for (host in hosts) {
-            when (stateOn(host, user, pass)) {
-                State.ACTIVE -> return@withContext Result.Success(host)
+            val probe = probe(host, user, pass)
+            when (probe.state) {
+                State.ACTIVE -> return@withContext probe.toSuccess(host)
                 State.EXPIRED -> expired = true
                 State.INVALID -> invalid = true
                 State.NO_SERVER -> Unit
@@ -70,8 +89,9 @@ object PanelLogin {
      */
     suspend fun revalidate(host: String, user: String, pass: String): Result =
         withContext(Dispatchers.IO) {
-            when (stateOn(host, user, pass)) {
-                State.ACTIVE -> Result.Success(host)
+            val probe = probe(host, user, pass)
+            when (probe.state) {
+                State.ACTIVE -> probe.toSuccess(host)
                 State.EXPIRED -> Result.Expired
                 State.INVALID -> Result.Invalid
                 State.NO_SERVER -> Result.NoConnection
@@ -106,32 +126,42 @@ object PanelLogin {
 
     // ---- Servidor Xtream ----------------------------------------------------
 
-    private fun stateOn(host: String, user: String, pass: String): State {
+    private fun Probe.toSuccess(host: String) =
+        Result.Success(host, expiresAt, trial, serverOffsetMs)
+
+    private fun probe(host: String, user: String, pass: String): Probe {
         return try {
             val base = if (host.startsWith("http", ignoreCase = true)) host else "http://$host"
             val url = "${base.trimEnd('/')}/player_api.php".toHttpUrlOrNull()
                 ?.newBuilder()
                 ?.addQueryParameter("username", user)
                 ?.addQueryParameter("password", pass)
-                ?.build() ?: return State.NO_SERVER
+                ?.build() ?: return Probe(State.NO_SERVER)
             val body = client.newCall(Request.Builder().url(url).build()).execute().use { r ->
-                if (!r.isSuccessful) return State.NO_SERVER
+                if (!r.isSuccessful) return Probe(State.NO_SERVER)
                 r.body?.string().orEmpty()
             }
-            val info = JSONObject(body).optJSONObject("user_info") ?: return State.INVALID
-            if ((info.opt("auth")?.toString() ?: "0") != "1") return State.INVALID
+            val json = JSONObject(body)
+            val info = json.optJSONObject("user_info") ?: return Probe(State.INVALID)
+            if ((info.opt("auth")?.toString() ?: "0") != "1") return Probe(State.INVALID)
             val status = info.optString("status")
             val exp = info.optString("exp_date").toLongOrNull() ?: 0L
+            val trial = info.opt("is_trial")?.toString() == "1"
+            // Hora del servidor (si la manda), para que el contador no dependa del reloj del equipo.
+            val serverNow = json.optJSONObject("server_info")
+                ?.optString("timestamp_now")?.toLongOrNull() ?: 0L
+            val offset = if (serverNow > 0L) serverNow * 1000 - System.currentTimeMillis() else 0L
+            val now = (System.currentTimeMillis() + offset) / 1000
             when {
-                status.equals("Expired", ignoreCase = true) -> State.EXPIRED
-                exp > 0L && exp < System.currentTimeMillis() / 1000 -> State.EXPIRED
-                status.equals("Active", ignoreCase = true) -> State.ACTIVE
-                else -> State.INVALID
+                status.equals("Expired", ignoreCase = true) -> Probe(State.EXPIRED)
+                exp > 0L && exp < now -> Probe(State.EXPIRED)
+                status.equals("Active", ignoreCase = true) -> Probe(State.ACTIVE, exp, trial, offset)
+                else -> Probe(State.INVALID)
             }
         } catch (e: java.io.IOException) {
-            State.NO_SERVER
+            Probe(State.NO_SERVER)
         } catch (e: Exception) {
-            State.INVALID
+            Probe(State.INVALID)
         }
     }
 

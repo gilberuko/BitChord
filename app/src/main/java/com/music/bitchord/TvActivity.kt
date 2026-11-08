@@ -32,6 +32,9 @@ class TvActivity : ComponentActivity() {
         // Attach TV Refresh Rate and Display Controller
         TvRefreshRateController.attach(this)
 
+        // Enlaces y acciones que llegaron por MainActivity (que en TV redirige aquí).
+        consumeLinks(intent)
+
         // Make window full edge-to-edge for 1080p/4K television screens
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)

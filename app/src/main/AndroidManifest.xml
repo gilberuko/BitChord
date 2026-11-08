@@ -20,6 +20,9 @@
          for a USB DAC. A normal permission, granted at install. -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.faketouch" android:required="false" />
 
     <!--
       Asked for only when the output picker is first opened, and only on API 31+
@@ -64,6 +67,7 @@
         android:name=".BitChordApplication"
         android:allowBackup="true"
         android:appCategory="audio"
+        android:banner="@drawable/tv_banner"
         android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -126,10 +130,40 @@
           uiMode is deliberately *not* in the list: a day/night change should
           still recreate the Activity so the theme is rebuilt from resources.
         -->
+        <!--
+          Interfaz de TV (Android TV, Google TV, Fire TV): horizontal y con el
+          diseño de control remoto. Se llega por el alias de abajo, que es lo
+          que el lanzador de la TV muestra, o por MainActivity, que en una TV
+          redirige aquí.
+        -->
+        <activity
+            android:name=".TvActivity"
+            android:banner="@drawable/tv_banner"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.BitChord.Tv" />
+        <activity-alias
+            android:name=".TvLauncher"
+            android:banner="@drawable/tv_banner"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:targetActivity=".TvActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
+            android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:theme="@style/Theme.BitChord">
             <intent-filter>
@@ -668,6 +702,10 @@
                 android:name="androidx.work.WorkManagerInitializer"
                 android:value="androidx.startup"
                 tools:node="remove" />
+            <!-- Ganchos de la interfaz de TV; solo actúan cuando el equipo es una TV. -->
+            <meta-data
+                android:name="com.music.bitchord.data.TvStartup"
+                android:value="androidx.startup" />
         </provider>
 
         <!--
