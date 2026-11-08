@@ -40,7 +40,6 @@
 # ---- Native and crypto --------------------------------------------------------
 # ONNX Runtime and QuickJS are called from JNI, which R8 cannot see. SMBJ picks
 # its BouncyCastle providers and event bus handlers reflectively.
--keep class ai.onnxruntime.** { *; }
 -keep class com.hierynomus.** { *; }
 -keep class net.engio.mbassy.** { *; }
 -keep class org.bouncycastle.** { *; }

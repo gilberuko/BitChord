@@ -21,9 +21,6 @@
 
 package com.music.bitchord.playback.smart
 
-import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -103,168 +100,15 @@ class VocalTracker(
     private val inferenceThreads: () -> Int,
 ) {
 
-    @Volatile private var session: OrtSession? = null
-    @Volatile private var sessionThreads = 0
-    private val lock = Any()
-
-    private fun session(): OrtSession? {
-        val threads = inferenceThreads()
-        session?.takeIf { sessionThreads == threads }?.let { return it }
-        synchronized(lock) {
-            session?.takeIf { sessionThreads == threads }?.let { return it }
-            runCatching { session?.close() }
-            session = null
-            return runCatching {
-                val file = File(modelPath())
-                val options = OrtSession.SessionOptions().apply {
-                    setIntraOpNumThreads(threads)
-                    setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                    // Same reasoning as BeatTracker: the arena retains every block it allocates for
-                    // the life of the session, which a backgrounded music player cannot justify.
-                    setCPUArenaAllocator(false)
-                    setMemoryPatternOptimization(false)
-                }
-                OrtEnvironment.getEnvironment().createSession(file.absolutePath, options)
-                    .also {
-                        session = it
-                        sessionThreads = threads
-                    }
-            }.onFailure { AnalysisLog.warn("Vocal model unavailable; no mask will be produced", it) }
-                .getOrNull()
-        }
-    }
-
     /**
-     * Returns one vocal-presence value per STFT frame in [0, 1], or null when unavailable.
-     *
-     * The model's input width is fixed at [FIXED_FRAMES] (~22.8 s), which was chosen upstream to
-     * cover a transition overlap plus padding. Shorter input is zero-padded; longer is refused
-     * rather than chunked, because a transition never needs more than one window.
+     * Desactivado: el modelo de IA (open-unmix) y su motor de ejecución ya no
+     * se incluyen en la app, para que pese mucho menos. Sin curva de voz el
+     * llamador sigue como cuando el modelo no estaba disponible.
      */
-    fun track(left: FloatArray, right: FloatArray, rate: Double): FloatArray? {
-        if (!VocalSpectrogram.available) return null
-        val resampledLeft = MelSpectrogram.resample(left, rate, VocalSpectrogram.sampleRate) ?: return null
-        val resampledRight = MelSpectrogram.resample(right, rate, VocalSpectrogram.sampleRate) ?: return null
+    @Suppress("UNUSED_PARAMETER")
+    fun track(left: FloatArray, right: FloatArray, rate: Double): FloatArray? = null
 
-        val started = System.currentTimeMillis()
-        val spectrogram = VocalSpectrogram.compute(resampledLeft, resampledRight) ?: return null
-        if (spectrogram.frames > FIXED_FRAMES) {
-            AnalysisLog.warn("Window of ${spectrogram.frames} frames exceeds the model's $FIXED_FRAMES")
-            return null
-        }
-        val active = session() ?: return null
-
-        return runCatching {
-            val bins = spectrogram.bins
-            // Direct, and sized for the model rather than for the input, so the
-            // ~16MB of mix never lands on the Java heap and ORT reads it where it
-            // lies instead of copying it into native memory. Both matter: this
-            // runs on devices whose whole Java heap is 256MB, and the two copies
-            // this replaces were together enough to end the process.
-            val backing = ByteBuffer
-                .allocateDirect(VocalSpectrogram.CHANNELS * bins * FIXED_FRAMES * Float.SIZE_BYTES)
-                .order(ByteOrder.nativeOrder())
-            fillFixedFrames(backing.asFloatBuffer(), spectrogram.values, bins, spectrogram.frames)
-            val environment = OrtEnvironment.getEnvironment()
-            val shape = longArrayOf(1, VocalSpectrogram.CHANNELS.toLong(), bins.toLong(), FIXED_FRAMES.toLong())
-
-            // A fresh view per reader rather than rewinding one: FloatBuffer's own
-            // rewind() and position(int) are Java 9 covariant overrides that
-            // Android's FloatBuffer does not declare, so they compile against the
-            // current SDK and throw NoSuchMethodError on the API 28 devices this
-            // has to run on. asFloatBuffer() hands back a view at position 0 and
-            // has been there since API 1.
-            OnnxTensor.createTensor(environment, backing.asFloatBuffer(), shape).use { tensor ->
-                active.run(mapOf(active.inputNames.first() to tensor)).use { outputs ->
-                    // The output tensor's buffer, not `outputs.get(0).value`: that
-                    // property boxes this [1, 2, bins, FIXED_FRAMES] result into
-                    // one FloatArray per bin per channel — 4098 objects and ~16MB
-                    // per call — when the only thing read from it is a band
-                    // average.
-                    val target = (outputs.get(0) as OnnxTensor).floatBuffer
-                    val curve = reduceToBandCurve(backing.asFloatBuffer(), target, bins, spectrogram.frames)
-                    AnalysisLog.warn("vocal mask ${spectrogram.frames} frames in " +
-                            "${System.currentTimeMillis() - started}ms",
-                    )
-                    curve
-                }
-            }
-        }.onFailure { AnalysisLog.warn("Vocal inference failed", it) }.getOrNull()
-    }
-
-    /**
-     * Writes the spectrogram into the model's fixed width, zero-padding each bin's tail.
-     *
-     * The stride changes as well as the length: the source is stored at `frames` per bin and the
-     * model wants [FIXED_FRAMES], so this is a re-stride rather than an append.
-     *
-     * Sequential relative puts only. Seeking to each bin's start would be the obvious way to write
-     * it, but that needs `FloatBuffer.position(int)`, which Android declares on `Buffer` alone;
-     * writing the pad out explicitly keeps every call on a member that has existed since API 1.
-     */
-    private fun fillFixedFrames(into: FloatBuffer, values: FloatArray, bins: Int, frames: Int) {
-        if (frames == FIXED_FRAMES) {
-            into.put(values)
-            return
-        }
-        val pad = FloatArray(FIXED_FRAMES - frames)
-        for (channel in 0 until VocalSpectrogram.CHANNELS) {
-            for (bin in 0 until bins) {
-                into.put(values, (channel * bins + bin) * frames, frames)
-                into.put(pad)
-            }
-        }
-    }
-
-    /**
-     * Averages `mask = target / (mix + eps)` across a frequency band, then across channels.
-     *
-     * Band-averaging rather than a full per-bin mask: the only consumer is a single number per
-     * instant (how vocal this moment is), so per-bin resolution would be work with no reader.
-     * Only the frames carrying real audio are reduced; the padded tail's mask is meaningless and
-     * folding it in would drag every short window toward silence.
-     */
-    private fun reduceToBandCurve(
-        mix: FloatBuffer,
-        target: FloatBuffer,
-        bins: Int,
-        usableFrames: Int,
-    ): FloatArray {
-        val lowBin = floor(LOW_HZ * VocalSpectrogram.fftSize / VocalSpectrogram.sampleRate)
-            .toInt().coerceAtLeast(0)
-        val highBin = ceil(HIGH_HZ * VocalSpectrogram.fftSize / VocalSpectrogram.sampleRate)
-            .toInt().coerceAtMost(bins - 1)
-        if (highBin <= lowBin || usableFrames <= 0) return FloatArray(0)
-
-        val curve = FloatArray(usableFrames)
-        for (frame in 0 until usableFrames) {
-            var sum = 0.0
-            var count = 0
-            for (channel in 0 until VocalSpectrogram.CHANNELS) {
-                for (bin in lowBin..highBin) {
-                    // Both buffers carry the model's [1, 2, bins, FIXED_FRAMES]
-                    // layout, so one index reads the same cell of each. Absolute
-                    // get, so neither view's position matters.
-                    val index = (channel * bins + bin) * FIXED_FRAMES + frame
-                    val mixValue = mix.get(index)
-                    if (mixValue <= 1e-6f) continue
-                    val ratio = target.get(index) / mixValue
-                    sum += ratio.coerceIn(0f, 1f)
-                    count += 1
-                }
-            }
-            curve[frame] = if (count > 0) (sum / count).toFloat() else 0f
-        }
-        return curve
-    }
-
-    fun release() {
-        synchronized(lock) {
-            runCatching { session?.close() }
-            session = null
-            sessionThreads = 0
-        }
-    }
+    fun release() = Unit
 
     companion object {
         private const val TAG = "BitChordVocalTracker"
