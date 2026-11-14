@@ -62,22 +62,6 @@ data class AppLanguage(val tag: String, val nameRes: Int)
 val SUPPORTED_LANGUAGES = listOf(
     AppLanguage("en", R.string.english),
     AppLanguage("es", R.string.spanish),
-    AppLanguage("fr", R.string.french),
-    AppLanguage("de", R.string.german),
-    AppLanguage("pl", R.string.polish),
-    AppLanguage("pt", R.string.portuguese),
-    AppLanguage("id", R.string.indonesian),
-    AppLanguage("hi", R.string.hindi),
-    AppLanguage("ja", R.string.japanese),
-    AppLanguage("ru", R.string.russian),
-    AppLanguage("zh-CN", R.string.chinese_simplified),
-    AppLanguage("zh-TW", R.string.chinese_traditional),
-    AppLanguage("he", R.string.hebrew),
-    AppLanguage("it", R.string.italian),
-    AppLanguage("tr", R.string.turkish),
-    AppLanguage("th", R.string.thai),
-    AppLanguage("vi", R.string.vietnamese),
-    AppLanguage("ko", R.string.korean),
 )
 
 fun languageDisplayNameRes(languageTag: String): Int {

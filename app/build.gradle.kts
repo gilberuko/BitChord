@@ -79,6 +79,11 @@ android {
     // InnerTubeX's AAR requires compiling against 37; targetSdk (runtime behaviour) stays 36.
     compileSdk = 37
 
+    // Solo inglés y español: no se empaquetan las traducciones de las demás lenguas (ni las de las librerías)
+    androidResources {
+        localeFilters += listOf("en", "es")
+    }
+
     defaultConfig {
         applicationId = if (esTv) "com.ottmty.spottv" else "com.ottmty.spot"
         // Nombre bajo el ícono (el manifiesto lo lee de aquí; app_name sigue siendo "Spoty" en todos los idiomas)
