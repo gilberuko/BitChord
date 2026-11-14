@@ -41,8 +41,10 @@ buildscript {
  * No "v" in the name — the in-app updater reads it as a number; the "v" is the
  * release tag's alone.
  */
-extra["bitchordVersionCode"] = 39
-extra["bitchordVersionName"] = "1.9.1"
+// Spoty: el workflow de GitHub pasa la versión de cada compilación (-Pspoty.version, -Pspoty.versionCode)
+// para que la app compare bien contra el release más nuevo de gilberuko/BitChord.
+extra["bitchordVersionCode"] = (findProperty("spoty.versionCode") as String?)?.toIntOrNull() ?: 39
+extra["bitchordVersionName"] = (findProperty("spoty.version") as String?) ?: "1.9.1"
 
 /*
  * Bump this by hand before cutting each sideloaded test build ("beta2",

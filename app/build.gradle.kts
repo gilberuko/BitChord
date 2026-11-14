@@ -20,6 +20,12 @@ val signing = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+/**
+ * Spoty TV: la misma app con otro paquete, otro nombre y un APK único que lleva 32 y 64 bits
+ * (los Firestick y TV Box de 32 bits no instalan un APK solo de 64). Se activa con -Pspoty.tv=true.
+ */
+val esTv: Boolean = (project.findProperty("spoty.tv") as String?) == "true"
+
 val localProps = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -74,7 +80,12 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.ottmty.spot"
+        applicationId = if (esTv) "com.ottmty.spottv" else "com.ottmty.spot"
+        // Nombre bajo el ícono (el manifiesto lo lee de aquí; app_name sigue siendo "Spoty" en todos los idiomas)
+        manifestPlaceholders["appLabel"] = if (esTv) "Spoty TV" else "Spoty"
+        if (esTv) {
+            ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a") }
+        }
         // 26 keeps reach wide; real-time blur (RenderEffect) kicks in on API 31+,
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
@@ -100,12 +111,15 @@ android {
         // Which release assets are this app's: the phone and TV APKs ship in
         // the same GitHub release, told apart by file name. See
         // AppUpdateChecker.apkAssetUrl.
-        buildConfigField("String", "UPDATE_APK_PREFIX", "\"BitChord-\"")
+        // Nombre del APK en el release de gilberuko/BitChord (celular: spoty-ottmty.apk, TV: spoty-tv-ottmty.apk)
+        buildConfigField("String", "UPDATE_APK_PREFIX", if (esTv) "\"spoty-tv-ottmty\"" else "\"spoty-ottmty\"")
+        // Clave con la que el panel cuenta los equipos de esta app (app_device.php)
+        buildConfigField("String", "APP_KEY", if (esTv) "\"spotytv\"" else "\"spoty\"")
     }
 
     splits {
         abi {
-            isEnable = true
+            isEnable = !esTv   // la TV lleva 32 y 64 bits juntos en un solo APK
             reset()
             include("arm64-v8a")
             isUniversalApk = false
@@ -134,6 +148,7 @@ android {
             dimension = "env"
             applicationId = "com.dev.bitchord"
             resValue("string", "app_name", "Spoty Dev")
+            manifestPlaceholders["appLabel"] = "Spoty Dev"
         }
         create("prod") {
             dimension = "env"

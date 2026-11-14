@@ -1,8 +1,17 @@
 name: Release
 
+# Compila Spoty (celular) y Spoty TV (32 + 64 bits) y los publica juntos en un mismo release.
+# - Push a main: compila, verifica y publica.
+# - Push a la rama spoty-tv: solo compila y verifica (no publica); los APK quedan como artefactos.
+#
+# Firma: usa la llave propia guardada en los secretos del repositorio
+#   SPOTY_KEYSTORE_B64      (el archivo .jks codificado en base64)
+#   SPOTY_KEYSTORE_PASSWORD (la contraseña del .jks, que es también la de la llave)
+# Sin esos secretos NO se publica: una app firmada con otra llave cada vez no se puede actualizar encima.
+
 on:
   push:
-    branches: [main]
+    branches: [main, spoty-tv]
   workflow_dispatch:
 
 permissions:
@@ -11,6 +20,10 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      PUBLICAR: ${{ github.ref == 'refs/heads/main' && 'si' || 'no' }}
+      KEYSTORE_B64: ${{ secrets.SPOTY_KEYSTORE_B64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.SPOTY_KEYSTORE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -18,20 +31,102 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Versión de esta compilación
+        run: |
+          N=${{ github.run_number }}
+          echo "VERSION=1.9.$N" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$((1000 + N))" >> "$GITHUB_ENV"
+
       - name: Firma
         run: |
-          cat > keystore.properties <<'KEYS'
-          storeFile=app/spoty.jks
-          storePassword=R2x4Wlsijo1gomY6IPU0
-          keyAlias=spoty
-          keyPassword=R2x4Wlsijo1gomY6IPU0
-          KEYS
-      - name: Compilar
-        run: ./gradlew assembleProdRelease -Pbitchord.bundleWear=false --no-daemon
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > app/spoty.jks
+            {
+              echo "storeFile=app/spoty.jks"
+              echo "storePassword=$KEYSTORE_PASSWORD"
+              echo "keyAlias=spoty"
+              echo "keyPassword=$KEYSTORE_PASSWORD"
+            } > keystore.properties
+            echo "FIRMA=propia" >> "$GITHUB_ENV"
+            echo "Firmando con la llave propia."
+          elif [ "$PUBLICAR" = "si" ]; then
+            echo "::error title=Falta la llave de firma::Agrega los secretos SPOTY_KEYSTORE_B64 y SPOTY_KEYSTORE_PASSWORD en Settings > Secrets and variables > Actions. No se publica sin ellos."
+            exit 1
+          else
+            echo "FIRMA=prueba" >> "$GITHUB_ENV"
+            echo "::warning title=Compilación de prueba::Sin llave de firma propia; estos APK no se publican."
+          fi
+
+      - name: Compilar Spoty (celular)
+        run: |
+          ./gradlew assembleProdRelease -Pbitchord.bundleWear=false \
+            -Pspoty.version="$VERSION" -Pspoty.versionCode="$VERSION_CODE" --no-daemon
+          apk=$(ls app/build/outputs/apk/prod/release/*arm64-v8a*.apk | head -n1)
+          cp "$apk" spoty-ottmty.apk
+
+      - name: Compilar Spoty TV (32 y 64 bits)
+        run: |
+          rm -rf app/build/outputs/apk
+          ./gradlew assembleProdRelease -Pbitchord.bundleWear=false -Pspoty.tv=true \
+            -Pspoty.version="$VERSION" -Pspoty.versionCode="$VERSION_CODE" --no-daemon
+          n=$(ls app/build/outputs/apk/prod/release/*.apk | wc -l)
+          if [ "$n" != "1" ]; then
+            echo "::error::Se esperaba un solo APK de TV y hay $n"; ls app/build/outputs/apk/prod/release/; exit 1
+          fi
+          cp app/build/outputs/apk/prod/release/*.apk spoty-tv-ottmty.apk
+
+      - name: Verificar los APK
+        run: |
+          set -e
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+          pkg() { "$BT/aapt2" dump badging "$1" | grep -m1 "^package:" ; }
+          echo "Celular: $(pkg spoty-ottmty.apk)"
+          echo "TV:      $(pkg spoty-tv-ottmty.apk)"
+          pkg spoty-ottmty.apk    | grep -q "name='com.ottmty.spot'"    || { echo "::error::El APK de celular no es com.ottmty.spot"; exit 1; }
+          pkg spoty-tv-ottmty.apk | grep -q "name='com.ottmty.spottv'"  || { echo "::error::El APK de TV no es com.ottmty.spottv"; exit 1; }
+
+          # Celular: solo 64 bits. TV: 32 y 64 bits, y cada librería de 64 debe tener su par de 32.
+          if unzip -Z1 spoty-ottmty.apk | grep -q '^lib/armeabi-v7a/'; then
+            echo "::error::El APK de celular trae librerías de 32 bits"; exit 1
+          fi
+          unzip -Z1 spoty-tv-ottmty.apk | grep '^lib/arm64-v8a/'   | sed 's|.*/||' | sort > l64.txt
+          unzip -Z1 spoty-tv-ottmty.apk | grep '^lib/armeabi-v7a/' | sed 's|.*/||' | sort > l32.txt
+          echo "Librerías TV: $(wc -l < l64.txt) de 64 bits, $(wc -l < l32.txt) de 32 bits"
+          if [ ! -s l32.txt ]; then echo "::error::El APK de TV no trae librerías de 32 bits"; exit 1; fi
+          faltan=$(comm -23 l64.txt l32.txt | tr '\n' ' ')
+          if [ -n "$faltan" ]; then
+            echo "::error title=Faltan librerías de 32 bits en la TV::$faltan"; exit 1
+          fi
+
+          # Firma
+          APKSIGNER="$BT/apksigner"
+          for f in spoty-ottmty.apk spoty-tv-ottmty.apk; do
+            "$APKSIGNER" verify --print-certs "$f" | grep -E "certificate (DN|SHA-256)" | head -n2 | sed "s|^|$f: |"
+          done
+          if [ "$FIRMA" = "propia" ]; then
+            if "$APKSIGNER" verify --print-certs spoty-ottmty.apk | grep -qi "Android Debug"; then
+              echo "::error::El APK quedó firmado con la llave de depuración"; exit 1
+            fi
+          fi
+          ls -la spoty-ottmty.apk spoty-tv-ottmty.apk
+
+      - name: Guardar los APK (compilaciones de prueba)
+        if: env.PUBLICAR != 'si'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-de-prueba
+          path: |
+            spoty-ottmty.apk
+            spoty-tv-ottmty.apk
+          retention-days: 7
+
       - name: Publicar
+        if: env.PUBLICAR == 'si'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apk=$(ls app/build/outputs/apk/prod/release/*arm64-v8a*.apk | head -n1)
-          cp "$apk" spoty-ottmty.apk
-          gh release create "v${{ github.run_number }}" spoty-ottmty.apk --title "Spoty OTTMTY v${{ github.run_number }}" --notes "Última versión de Spoty OTTMTY." --latest
+          gh release create "v$VERSION" spoty-ottmty.apk spoty-tv-ottmty.apk \
+            --title "Spoty OTTMTY v$VERSION" \
+            --notes "Última versión de Spoty OTTMTY: celular (spoty-ottmty.apk) y televisión de 32 y 64 bits (spoty-tv-ottmty.apk)." \
+            --latest

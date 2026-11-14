@@ -54,7 +54,7 @@ object PanelLogin {
     data class Device(val state: DeviceState, val max: Int = 0)
 
     /** Clave con la que el panel reconoce esta app. */
-    private const val APP_KEY = "spoty"
+    private val APP_KEY: String = com.music.bitchord.BuildConfig.APP_KEY
 
     private enum class State { ACTIVE, EXPIRED, INVALID, NO_SERVER }
 
